@@ -34,7 +34,7 @@ FinderPatternTrio* qrReader::find() {
         for(int col=0;col<img.cols;col++) {
             // Is this a black pixel?
             if(ptr[col]<128) {
-                if(currentState & 0x1 == 1) {
+                if((currentState & 0x1) == 1) {
                     // We were counting white pixels so
                     // change the state now
                     currentState++;
@@ -95,11 +95,6 @@ FinderPatternTrio* qrReader::find() {
                     else {
                         stateCount[++currentState]++;
                     }
-                }
-                else {
-                        // We haven't gone 'out' of the finder pattern yet
-                        // So increment the state
-                        stateCount[currentState]++;
                 }
             }
         }

@@ -31,5 +31,5 @@ private:
 
     std::vector<FinderPattern*> possibleCenters;
     cv::Mat img;
-    const int CENTER_QUORUM = 2;
+    const static int CENTER_QUORUM = 2;
 };
