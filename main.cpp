@@ -3,10 +3,12 @@
 #include <opencv2/opencv.hpp>
 #include "qrReader.h"
 
+#include "FinderPatternTrio.h"
+
 using namespace std;
 
 int main() {
-    cv::VideoCapture capture = VideoCapture(1);
+    cv::VideoCapture capture = cv::VideoCapture(1);
     qrReader qr = qrReader();
 
     if(!capture.isOpened()) {
@@ -20,11 +22,10 @@ int main() {
         capture >> image;
 
         cv::cvtColor(image, imgBW, CV_BGR2GRAY);
-        cv::threshold(imgBW, imgBW, 128, 255, THRESH_BINARY);
+        cv::threshold(imgBW, imgBW, 128, 255, cv::THRESH_BINARY);
 
-        bool found = qr.find(imgBW);
-        if(found)
-            qr.drawFinders(imgBW);
+        qr.setImage(imgBW);
+        FinderPatternTrio *trio = qr.find();
 
         cv::imshow("QR Code", imgBW);
         cv::waitKey(30);
