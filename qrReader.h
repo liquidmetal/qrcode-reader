@@ -32,4 +32,6 @@ private:
     std::vector<FinderPattern*> possibleCenters;
     cv::Mat img;
     const static int CENTER_QUORUM = 2;
+    const static int MAXIMUM_MODULES = 57;
+    const static int MIN_SKIP = 3;
 };

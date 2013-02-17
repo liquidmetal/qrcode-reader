@@ -19,7 +19,12 @@ FinderPatternTrio* qrReader::find() {
     int stateCount[5] = {0};
     int currentState = 0;
 
-    for(int row=skipRows-1; row<img.rows;row+=skipRows) {
+    skipRows = (3*img.cols)/(4*MAXIMUM_MODULES);
+    if(skipRows < MIN_SKIP) {
+        skipRows = MIN_SKIP;
+    }
+
+    for(int row=skipRows-1; row<img.cols && !done;row+=skipRows) {
         // Before starting a new row, reset all state data
         stateCount[0] = 0;
         stateCount[1] = 0;
@@ -81,7 +86,11 @@ FinderPatternTrio* qrReader::find() {
                             // Reset all counts and continue looking for more
                             // finder patterns in the current row
                             currentState = 0;
-                            stateCount[0] = stateCount[1] = stateCount[2] = stateCount[3] = stateCount[4] = 0;
+                            stateCount[0] = 0;
+                            stateCount[1] = 0;
+                            stateCount[2] = 0;
+                            stateCount[3] = 0;
+                            stateCount[4] = 0;
                         }
                         else {
                             currentState = 3;
@@ -111,6 +120,10 @@ FinderPatternTrio* qrReader::find() {
         }
     }
     // ^ ends looping through rows
+
+    for(int l=0;l<possibleCenters.size();l++) {
+        printf("(%f, %f)\n", possibleCenters[l]->getX(), possibleCenters[l]->getY());
+    }
 
     FinderPattern *patternInfo = selectBestPatterns();
     orderBestPatterns(patternInfo);
@@ -144,10 +157,9 @@ bool qrReader::checkRatio(int stateCount[]) {
 
     bool retVal = ((abs(moduleSize - stateCount[0])) < maxVariance &&
                    (abs(moduleSize - stateCount[1])) < maxVariance &&
-                   (abs(moduleSize - stateCount[2])) < 3*maxVariance &&
+                   (abs(3*moduleSize - stateCount[2])) < 3*maxVariance &&
                    (abs(moduleSize - stateCount[3])) < maxVariance &&
                    (abs(moduleSize - stateCount[4])) < maxVariance);
-
     return retVal;
 }
 
@@ -165,12 +177,11 @@ int* qrReader::getCrossCheckStateCount() {
 }
 
 float qrReader::crossCheckVertical(int startI, int centerJ, int maxCount, int originalStateCountTotal) {
-    cv::Mat duplicateImg = img.clone();
     int* stateCount = getCrossCheckStateCount();
 
     int i = startI;
     int maxI = img.rows;
-    while(i>=0 && img.at<uchar>(centerJ, i) > 128) {
+    while(i>=0 && img.at<uchar>(i, centerJ) < 128) {
         stateCount[2]++;
         i--;
     }
@@ -178,7 +189,7 @@ float qrReader::crossCheckVertical(int startI, int centerJ, int maxCount, int or
         return 0.0/0.0;
     }
 
-    while(i>=0 && img.at<uchar>(centerJ, i) < 128 && stateCount[1]<=maxCount) {
+    while(i>=0 && img.at<uchar>(i, centerJ) > 128 && stateCount[1]<=maxCount) {
         stateCount[1]++;
         i--;
     }
@@ -186,7 +197,7 @@ float qrReader::crossCheckVertical(int startI, int centerJ, int maxCount, int or
         return 0.0/0.0;
     }
 
-    while(i>=0 && img.at<uchar>(centerJ, i) > 128 && stateCount[0] <= maxCount) {
+    while(i>=0 && img.at<uchar>(i, centerJ) < 128 && stateCount[0] <= maxCount) {
         stateCount[0]++;
         i--;
     }
@@ -196,7 +207,7 @@ float qrReader::crossCheckVertical(int startI, int centerJ, int maxCount, int or
 
     // Now start moving down from the center
     i=startI + 1;
-    while(i<maxI && img.at<uchar>(centerJ, i) > 128) {
+    while(i<maxI && img.at<uchar>(i, centerJ) < 128) {
         stateCount[2]++;
         i++;
     }
@@ -204,7 +215,7 @@ float qrReader::crossCheckVertical(int startI, int centerJ, int maxCount, int or
         return 0.0/0.0;
     }
 
-    while(i<maxI && img.at<uchar>(centerJ, i) < 128 && stateCount[3]<maxCount) {
+    while(i<maxI && img.at<uchar>(i, centerJ) > 128 && stateCount[3]<maxCount) {
         stateCount[3]++;
         i++;
     }
@@ -212,7 +223,7 @@ float qrReader::crossCheckVertical(int startI, int centerJ, int maxCount, int or
         return 0.0/0.0;
     }
 
-    while(i<maxI && img.at<uchar>(centerJ, i) > 128 && stateCount[4] < maxCount) {
+    while(i<maxI && img.at<uchar>(i, centerJ) < 128 && stateCount[4] < maxCount) {
         stateCount[4]++;
         i++;
     }
@@ -235,7 +246,7 @@ float qrReader::crossCheckHorizontal(int startJ, int centerI, int maxCount, int 
     int* stateCount = getCrossCheckStateCount();
 
     int j=startJ;
-    while(j>=0 && img.at<uchar>(j, centerI)>128) {
+    while(j>=0 && img.at<uchar>(centerI, j)<128) {
         stateCount[2]++;
         j--;
     }
@@ -243,7 +254,7 @@ float qrReader::crossCheckHorizontal(int startJ, int centerI, int maxCount, int 
         return 0.0/0.0;
     }
 
-    while(j>=0 && img.at<uchar>(j, centerI)<128 && stateCount[1]<=maxCount) {
+    while(j>=0 && img.at<uchar>(centerI, j)>128 && stateCount[1]<=maxCount) {
         stateCount[1]++;
         j--;
     }
@@ -251,7 +262,7 @@ float qrReader::crossCheckHorizontal(int startJ, int centerI, int maxCount, int 
         return 0.0/0.0;
     }
 
-    while(j>=0 && img.at<uchar>(j, centerI)>128 && stateCount[0]<=maxCount) {
+    while(j>=0 && img.at<uchar>(centerI, j)<128 && stateCount[0]<=maxCount) {
         stateCount[0]++;
         j--;
     }
@@ -260,7 +271,7 @@ float qrReader::crossCheckHorizontal(int startJ, int centerI, int maxCount, int 
     }
 
     j = startJ + 1;
-    while(j<maxJ && img.at<uchar>(j, centerI)>128) {
+    while(j<maxJ && img.at<uchar>(centerI, j)<128) {
         stateCount[2]++;
         j++;
     }
@@ -268,7 +279,7 @@ float qrReader::crossCheckHorizontal(int startJ, int centerI, int maxCount, int 
         return 0.0/0.0;
     }
 
-    while(j<maxJ && img.at<uchar>(j, centerI)<128 && stateCount[3]<=maxCount) {
+    while(j<maxJ && img.at<uchar>(centerI, j)>128 && stateCount[3]<=maxCount) {
         stateCount[3]++;
         j++;
     }
@@ -276,7 +287,7 @@ float qrReader::crossCheckHorizontal(int startJ, int centerI, int maxCount, int 
         return 0.0/0.0;
     }
 
-    while(j<maxJ && img.at<uchar>(j, centerI)>128 && stateCount[4]<=maxCount) {
+    while(j<maxJ && img.at<uchar>(centerI, j)<128 && stateCount[4]<=maxCount) {
         stateCount[4]++;
         j++;
     }
@@ -316,11 +327,14 @@ bool qrReader::handlePossibleCenter(int stateCount[], int i, int j) {
 
             if(!found) {
                 FinderPattern *newCenter = new FinderPattern(centerJ, centerI, estimatedModuleSize);
+                printf("Created new center: (%f, %f)\n", newCenter->getX(), newCenter->getY());
                 possibleCenters.push_back(newCenter);
             }
+
             return true;
         }
     }
+    printf("Returning false\n");
     return false;
 }
 
