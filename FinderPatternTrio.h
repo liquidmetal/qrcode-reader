@@ -10,9 +10,9 @@ private:
     FinderPattern *topRight;
 
 public:
-    FinderPattern getBottomLeft();
-    FinderPattern getTopLeft();
-    FinderPattern getTopRight();
-    FinderPatternTrio(FinderPattern*);
+    FinderPattern* getBottomLeft();
+    FinderPattern* getTopLeft();
+    FinderPattern* getTopRight();
+    FinderPatternTrio(FinderPattern**);
 };
 #endif

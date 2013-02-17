@@ -20,8 +20,8 @@ private:
     float centerFromEnd(int stateCount[], int end);
     float crossCheckHorizontal(int startJ, int centerI, int maxCount, int originalStateCountTotal);
     float crossCheckVertical(int startI, int centerJ, int maxCount, int originalStateCountTotal);
-    FinderPattern* selectBestPatterns();
-    void orderBestPatterns(FinderPattern[]);
+    FinderPattern** identifyBestPatterns();
+    FinderPattern** orderBestPatterns(FinderPattern**);
     bool haveMultiplyConfirmedCenters();
     int getRowSkip();
 

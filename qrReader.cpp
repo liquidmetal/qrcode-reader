@@ -121,21 +121,109 @@ FinderPatternTrio* qrReader::find() {
     }
     // ^ ends looping through rows
 
-    for(int l=0;l<possibleCenters.size();l++) {
+    for(unsigned int l=0;l<possibleCenters.size();l++) {
         printf("(%f, %f)\n", possibleCenters[l]->getX(), possibleCenters[l]->getY());
     }
 
-    FinderPattern *patternInfo = selectBestPatterns();
-    orderBestPatterns(patternInfo);
+    FinderPattern **patternInfo = identifyBestPatterns();
+    patternInfo = orderBestPatterns(patternInfo);
     return new FinderPatternTrio(patternInfo);
 }
 
-FinderPattern* qrReader::selectBestPatterns() {
-    FinderPattern *newPattern = new FinderPattern(0,0,0.0f);
-    return newPattern;
+FinderPattern** qrReader::identifyBestPatterns() {
+    int initialSize = possibleCenters.size();
+    if(initialSize < 3) {
+        printf("Not enough centers found in the image. Skipping");
+        
+        return NULL;
+    }
+
+    if(initialSize > 3) {
+        float combinedModuleSize = 0.0f;
+        float sq = 0.0f;
+
+        for(unsigned int index=0;index<possibleCenters.size();index++) {
+            float size = possibleCenters[index]->getEstimatedModuleSize();
+            combinedModuleSize += size;
+            sq += size*size;
+        }
+        float avg = combinedModuleSize / (float)initialSize;
+        float stdDev = (float)sqrt(sq/initialSize - avg*avg);
+        float limit = 0.2f*avg;
+        if(stdDev>limit)
+            limit = stdDev;
+
+        for(unsigned int l=0;l<possibleCenters.size();l++) {
+            for(unsigned int k=0;k<possibleCenters.size()-1;k++) {
+                if(fabs(possibleCenters[k]->getEstimatedModuleSize()-avg) > fabs(possibleCenters[k+1]->getEstimatedModuleSize()-avg)) {
+                    FinderPattern *temp = possibleCenters[k];
+                    possibleCenters.erase(possibleCenters.begin() + k);
+
+                    possibleCenters.insert(possibleCenters.begin()+k+1, temp);
+                    k--;
+                }
+            }
+        }
+
+        for(unsigned int l=0;l<possibleCenters.size() && possibleCenters.size()>3;l++) {
+            if(fabs(avg - possibleCenters[l]->getEstimatedModuleSize()) > limit) {
+                possibleCenters.erase(possibleCenters.begin()+l);
+                l--;
+            }
+        }
+    }
+
+    FinderPattern **patterns = (FinderPattern**)malloc(sizeof(FinderPattern*)*3);
+    patterns[0] = possibleCenters[0];
+    patterns[1] = possibleCenters[1];
+    patterns[2] = possibleCenters[2];
+
+    return patterns;
 }
 
-void qrReader::orderBestPatterns(FinderPattern *pattern) {
+// Order the three finder patterns A, B, C such that B is the top-left
+// pattern and A, C are the ones on the sides.
+FinderPattern** qrReader::orderBestPatterns(FinderPattern **pattern) {
+    float distanceAB = sqrt((pattern[0]->getX()-pattern[1]->getX())*(pattern[0]->getX()-pattern[1]->getX()) - 
+                            (pattern[0]->getY()-pattern[1]->getY())*(pattern[0]->getY()-pattern[1]->getY()));
+    float distanceBC = sqrt((pattern[1]->getX()-pattern[2]->getX())*(pattern[1]->getX()-pattern[2]->getX()) - 
+                            (pattern[1]->getY()-pattern[2]->getY())*(pattern[1]->getY()-pattern[2]->getY()));
+    float distanceAC = sqrt((pattern[0]->getX()-pattern[2]->getX())*(pattern[0]->getX()-pattern[2]->getX()) - 
+                            (pattern[0]->getY()-pattern[2]->getY())*(pattern[0]->getY()-pattern[2]->getY()));
+
+    FinderPattern **returnPatterns = (FinderPattern**)malloc(sizeof(FinderPattern*)*3);
+    FinderPattern *patternA, *patternB, *patternC;
+
+    if(distanceBC >= distanceAB && distanceBC >= distanceAC) {
+        patternA = pattern[1];
+        patternB = pattern[0];
+        patternC = pattern[2];
+    }
+    else if(distanceAC >= distanceAB && distanceAC >= distanceBC) {
+        patternA = pattern[0];
+        patternB = pattern[1];
+        patternC = pattern[2];
+    } else {
+        patternA = pattern[0];
+        patternB = pattern[2];
+        patternC = pattern[1];
+    }
+
+    // Check the cross product
+    float bx = patternB->getX();
+    float by = patternB->getY();
+    float cross = ((patternC->getX()-bx)*(patternA->getY()-by)) - ((patternC->getY()-by)*(patternA->getX()-bx));
+
+    if(cross<0.0f) {
+        FinderPattern *temp = patternA;
+        patternA = patternC;
+        patternC = temp;
+    }
+    returnPatterns[0] = patternA;
+    returnPatterns[1] = patternB;
+    returnPatterns[2] = patternC;
+
+    return returnPatterns;
 }
 
 bool qrReader::checkRatio(int stateCount[]) {
